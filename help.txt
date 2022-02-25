@@ -1,0 +1,8 @@
+Languages commandsŁ
+-write x print on ecran x
+-let x=0 set variable x 0
+-begin ... end create new composition
+-beginF name ... end create new function
+-if ... else ... if else statement
+-while x ... normal while
+- input x set variable x on text user input
