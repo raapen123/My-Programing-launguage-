@@ -1,11 +1,15 @@
 import Parser
 import sys
+import Lexer
 filename=sys.argv[1]
 file = open(filename)
 s = ''
 for i in file.readlines():
     s += i
 m=Parser.Memory()
+lex=Lexer.Lexer(s)
+print(lex.lex_Program())
+
 parser=Parser.Parser(s).parse_Program()
 if __name__=='__main__':
     parser.eval(m)

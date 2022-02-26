@@ -1,2 +1,4 @@
-import test
-write "To super!"
+input n1
+input n2
+let n3 = n1+n2
+write n3

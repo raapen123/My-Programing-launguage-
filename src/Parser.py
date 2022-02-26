@@ -1,4 +1,5 @@
 from Expression import *
+from Lexer import *
 
 
 class Not_Parsed(Exception):
@@ -8,32 +9,12 @@ class Not_Parsed(Exception):
 class Parser:
     def __init__(self, input):
 
-        self.input = input
+        self.input = Lexer(input).lex_Program()
         self.position = 0
-
         self.EOS = ';'
-        self.input = self.input.replace("\n", ' ')
-        self.input = self.input.replace("\t", ' ')
-        self.input += self.EOS
-
-    def skip_whitechars(self):
-        while self.input[self.position] == ' ' and self.input[self.position] != self.EOS:
-            self.position += 1
 
     def look_char(self):
-        self.skip_whitechars()
         return self.input[self.position]
-
-    def look_word(self):
-        self.skip_whitechars()
-
-        s = ''
-        c = self.input[self.position]
-        while c.isalnum() and c != self.EOS:
-            s = s + c
-            self.position += 1
-            c = self.input[self.position]
-        return s
 
     def parse_block(self):
 
@@ -47,6 +28,8 @@ class Parser:
             p = Composition(p, q)
 
             c = self.look_char()
+            print(self.position)
+            self.position+=1
         return p
 
     def parse_Program(self):
@@ -54,36 +37,37 @@ class Parser:
 
     def parse_instruction(self):
         c = self.look_char()
-        if c.isalpha():
-            s = self.look_word()
-            if s == "let":
+        if c[0] == IDENTIFIER:
+
+            self.position += 1
+            if c[1] == "let":
 
                 return self.parse_Var()
-            elif s == "if":
+            elif c[1] == "if":
                 return self.parse_If()
-            elif s == "while":
+            elif c[1] == "while":
 
                 return self.parse_While()
-            elif s == "begin":
+            elif c[1] == "begin":
                 self.position += 1
                 return self.parse_block()
-            elif s == "end":
-                return s
-            elif s == "def":
+            elif c[1] == "end":
+                return c[1]
+            elif c[1] == "def":
                 return self.parse_Function()
-            elif s == 'input':
+            elif c[1] == 'input':
                 return self.parse_Input()
-            elif s == "write":
+            elif c[1] == "write":
                 return self.parse_Write()
-            elif s == "skip":
+            elif c[1] == "skip":
                 return Skip()
-            elif s == "do":
+            elif c[1] == "do":
                 return self.parse_Do_Function()
-            elif s == "append":
+            elif c[1] == "append":
                 return self.parse_Append()
-            elif s == "delete":
+            elif c[1] == "delete":
                 return self.parse_Delete()
-            elif s=="import":
+            elif c[1] == "import":
                 return self.parse_Import()
             else:
                 return self.parse_sum()
@@ -93,31 +77,29 @@ class Parser:
             return self.parse_sum()
 
     def parse_Var(self):
-        word = self.look_word()
+        word = self.look_char()[1]
         indexes = self.tab_algorithm()
-        char = self.look_char()
+        char = self.look_char()[0]
         if indexes:
-            if char == '=':
-                self.position += 1
+            if char == EQUALS:
                 s = self.parse_sum()
                 return IndexVar(word, s, indexes)
         else:
-            if char == '=':
-                self.position += 1
+            if char == EQUALS:
                 s = self.parse_sum()
                 return Var(word, s)
 
     def tab_algorithm(self):
         c = self.look_char()
-        if c!='[':
+        if c[0] != LARRAY:
             return []
         indexes = []
         while True:
-            if c == '[':
+            if c[0] == LARRAY:
                 s = self.parse_sum()
                 self.position -= 1
                 c = self.look_char()
-                if c == ']':
+                if c[0] == RARRAY:
                     indexes.append(s)
                     self.position += 1
                     c = self.look_char()
@@ -130,31 +112,33 @@ class Parser:
     def parse_If(self):
         c = self.parse_sum()
         t = self.parse_instruction()
-        s = self.look_word()
-        if s == 'else':
+        s = self.look_char()
+        if s[1] == 'else' and s[0]==IDENTIFIER:
             q = self.parse_instruction()
             return If(c, t, q)
         else:
             raise Not_Parsed("'else' expendent")
 
     def parse_Input(self):
-        s = self.look_word()
-        return Input(s)
+        self.position+=1
+        s = self.look_char()
+        return Input(s[1])
 
     def parse_Write(self):
         s = self.parse_sum()
         return Write(s)
+
     def parse_Import(self):
-        s=self.look_word()
-        file=open(s+'.g')
-        string=''
+        s = self.look_char()[1]
+        file = open(s + '.g')
+        string = ''
         for i in file.readlines():
-            string+=i
-        parser=Parser(string)
+            string += i
+        parser = Parser(string)
         return parser.parse_Program()
 
     def parse_Function(self):
-        s = self.look_word()
+        s = self.look_char()[1]
 
         self.position += 1
 
@@ -163,7 +147,7 @@ class Parser:
 
     def parse_Do_Function(self):
 
-        return EvalFunction(self.look_word())
+        return EvalFunction(self.look_char()[1])
 
     def parse_While(self):
         c = self.parse_sum()
@@ -173,10 +157,10 @@ class Parser:
     def parse_sum(self):
         e = self.parse_mult()
         c = self.look_char()
-        while c == "+" or c == "-":
+        while c[0] == SUM or c[0] == SUB:
             self.position += 1
             f = self.parse_mult()
-            e = Binary_operator(c, e, f)
+            e = Binary_operator(c[0], e, f)
             c = self.look_char()
 
         return e
@@ -184,10 +168,10 @@ class Parser:
     def parse_mult(self):
         e = self.parse_condition()
         c = self.look_char()
-        while c == "*" or c == "/" or c == '%':
+        while c[0] == MUL or c[0] == DIV or c[0] == MOD:
             self.position += 1
             f = self.parse_condition()
-            e = Binary_operator(c, e, f)
+            e = Binary_operator(c[0], e, f)
             c = self.look_char()
 
         return e
@@ -195,10 +179,10 @@ class Parser:
     def parse_condition(self):
         e = self.parse_term()
         c = self.look_char()
-        while c == "=" or c == "<" or c == ">" or c == "|" or c == "&":
+        while c[0] == EQUALS or c[0] == SMALLER or c[0] == BIGGER or c[0] == OR or c[0] == AND:
             self.position += 1
             f = self.parse_term()
-            e = Binary_operator(c, e, f)
+            e = Binary_operator(c[0], e, f)
             c = self.look_char()
 
         return e
@@ -207,17 +191,17 @@ class Parser:
         self.position += 1
         tab = []
         while self.input[self.position] != self.EOS:
-            if self.input[self.position].isalnum():
+            if self.input[self.position][0]==IDENTIFIER:
                 tab.append(self.parse_sum())
             c = self.look_char()
-            if c == ',':
+            if c[0] == COMMA:
                 self.position += 1
                 continue
-            elif c == ']':
+            elif c == RARRAY:
 
                 self.position += 1
                 break
-            elif c == '[':
+            elif c == LARRAY:
 
                 self.position += 1
                 tab.append(self.parse_tab())
@@ -227,86 +211,50 @@ class Parser:
 
     def parse_term(self):
         c = self.look_char()
-        if c == '(':
+        if c[0] == LPAREN:
             return self.parse_paren()
-        elif c == '[':
+        elif c[0] == LARRAY:
             return self.parse_tab()
-        elif c == '"':
-            return self.parse_String()
-        elif c.isalpha():
+        elif c[0]==';':
+            return
+        elif c[0] == STRING:
+            return Constant(c[1])
+        elif c[0] == IDENTIFIER:
             return self.parse_Variable()
-        elif c.isalnum():
-            return self.parse_Constant()
+        elif c[0] == INT or c[0] == FLOAT:
+            return Constant(c[1])
 
         else:
+            print(c[0])
             raise Not_Parsed()
-
-    def parse_String(self):
-        self.position += 1
-        s = ''
-        c = self.input[self.position]
-        while c != '"' and c != self.EOS:
-            s += c
-            self.position += 1
-            c = self.input[self.position]
-        if c == '"':
-            self.position += 1
-            return Constant(s)
-        else:
-            raise Not_Parsed("'\"' expendent")
-
-    def parse_Constant(self):
-        n = 0
-        dot = 0
-        digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
-        while (self.input[self.position] in digits) and self.input[self.position] != self.EOS:
-            n *= 10
-            n += int(self.input[self.position])
-            self.position += 1
-        if self.input[self.position] == '.':
-            self.position += 1
-            while (self.input[self.position] in digits) and self.input[self.position] != self.EOS:
-                dot /= 10
-                dot += int(self.input[self.position])
-                self.position += 1
-            dot /= 10
-            return Constant(n + dot)
-        else:
-            return Constant(n)
-
     def parse_Variable(self):
-        s = self.look_word()
-        if s == 'true':
+        s = self.look_char()
+        if s[1] == 'true':
             return Constant(True)
-        elif s == 'false':
+        elif s[1] == 'false':
             return Constant(False)
 
-        else:
-            if self.input[self.position] == '[':
-                self.position += 1
-                s2 = self.parse_sum()
-                if self.input[self.position] == ']':
-                    self.position += 1
-                    return IndexVariable(s, s2)
-                else:
-                    raise Not_Parsed("']' expendent")
-            return Variable(s)
+        elif s[0]==IDENTIFIER:
+            if s[0]==LARRAY:
+                s2=self.tab_algorithm()
+                return IndexVariable(s[1], s2)
+            return Variable(s[1])
 
     def parse_paren(self):
         self.position += 1
         e = self.parse_sum()
-        if self.look_char() == ')':
+        if self.look_char()[0] == LPAREN:
             self.position += 1
             return e
         else:
             raise Not_Parsed("')' expendent")
 
     def parse_Delete(self):
-        s = self.look_word()
-        return Del(s)
+        s = self.look_char()
+        return Del(s[1])
 
     def parse_Append(self):
-        s = self.look_word()
-        indexs=self.tab_algorithm()
+        s = self.look_char()
+        indexs = self.tab_algorithm()
         v = self.parse_sum()
-        return Append(s, v,indexs)
+        return Append(s[1], v, indexs)

@@ -1,0 +1,21 @@
+LPAREN = 0
+RPAREN = 1
+SUM = 2
+SUB = 3
+MUL = 4
+DIV = 5
+MOD = 6
+LARRAY = 7
+RARRAY = 8
+STRING = 9
+IDENTIFIER = 10
+INT = 11
+FLOAT = 12
+COMMA=13
+EQUALS = 14
+BIGGER = 15
+SMALLER = 16
+AND = 17
+OR = 18
+DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
+
