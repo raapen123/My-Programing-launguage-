@@ -1,5 +1,5 @@
 from Expression import *
-from Lexer import *
+import Lexer
 
 
 class Not_Parsed(Exception):
@@ -7,254 +7,312 @@ class Not_Parsed(Exception):
 
 
 class Parser:
-    def __init__(self, input):
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.position = -1
+        self.advance()
+        self.errors = []
 
-        self.input = Lexer(input).lex_Program()
-        self.position = 0
-        self.EOS = ';'
+    def advance(self):
+        self.position += 1
+        if self.position < len(self.tokens):
+            self.current_tok = self.tokens[self.position]
 
-    def look_char(self):
-        return self.input[self.position]
+        return self.current_tok
 
-    def parse_block(self):
-
-        c = self.look_char()
-        p = self.parse_instruction()
-
-        while not (p == "end" or c == self.EOS):
+    def parse_block(self, in_program):
+        if not in_program:
+            p = Composition(self.parse_Import("build"), self.parse_instruction())
+        else:
+            p = self.parse_instruction()
+        while self.current_tok.type != EOF and self.current_tok.type != RBUCKLE:
             q = self.parse_instruction()
-            if q == 'end' or c == self.EOS:
-                return p
             p = Composition(p, q)
-
-            c = self.look_char()
-            print(self.position)
-            self.position+=1
         return p
 
-    def parse_Program(self):
-        return self.parse_block()
+    def parse_Program(self, imported):
+        if imported == True:
+            return self.parse_block(True), self.errors
+        else:
+            return self.parse_block(False), self.errors
 
     def parse_instruction(self):
-        c = self.look_char()
-        if c[0] == IDENTIFIER:
-
-            self.position += 1
-            if c[1] == "let":
-
-                return self.parse_Var()
-            elif c[1] == "if":
+        if self.current_tok.type == IDENTIFIER:
+            if self.current_tok.value == 'if':
                 return self.parse_If()
-            elif c[1] == "while":
-
-                return self.parse_While()
-            elif c[1] == "begin":
-                self.position += 1
-                return self.parse_block()
-            elif c[1] == "end":
-                return c[1]
-            elif c[1] == "def":
-                return self.parse_Function()
-            elif c[1] == 'input':
-                return self.parse_Input()
-            elif c[1] == "write":
+            elif self.current_tok.value == 'write':
                 return self.parse_Write()
-            elif c[1] == "skip":
-                return Skip()
-            elif c[1] == "do":
-                return self.parse_Do_Function()
-            elif c[1] == "append":
-                return self.parse_Append()
-            elif c[1] == "delete":
-                return self.parse_Delete()
-            elif c[1] == "import":
+            elif self.current_tok.value == 'input':
+
+                return self.parse_Input()
+            elif self.current_tok.value == 'Str':
+                return self.parse_Str()
+            elif self.current_tok.value == 'Int':
+                return self.parse_Int()
+            elif self.current_tok.value == 'Float':
+                return self.parse_Float()
+            elif self.current_tok.value == 'import':
                 return self.parse_Import()
+            elif self.current_tok.value == 'while':
+                return self.parse_While()
+            elif self.current_tok.value == 'skip':
+                self.advance()
+                return Skip()
+            elif self.current_tok.value == 'len':
+                return self.parse_Len()
+            elif self.current_tok.value == 'append':
+                return self.parse_Append()
+            elif self.current_tok.value == 'del':
+                return self.parse_Delete()
+            elif self.current_tok.value == 'function':
+                return self.parse_Function()
+            elif self.current_tok.value == 'return':
+                return self.parse_Return()
             else:
                 return self.parse_sum()
-        elif c == self.EOS:
-            return 'end'
+        elif self.current_tok.type == HASHTAG:
+            return self.parse_Assign()
+        elif self.current_tok.type == LBUCKLE:
+            self.advance()
+            return self.parse_block(True)
         else:
             return self.parse_sum()
 
-    def parse_Var(self):
-        word = self.look_char()[1]
-        indexes = self.tab_algorithm()
-        char = self.look_char()[0]
-        if indexes:
-            if char == EQUALS:
-                s = self.parse_sum()
-                return IndexVar(word, s, indexes)
-        else:
-            if char == EQUALS:
-                s = self.parse_sum()
-                return Var(word, s)
+    def parse_If(self):
+        self.advance()
+        condition = self.parse_instruction()
+        program = self.parse_instruction()
+        if self.current_tok.type == IDENTIFIER and self.current_tok.value == 'else':
+            self.advance()
+            else_ = self.parse_instruction()
 
-    def tab_algorithm(self):
-        c = self.look_char()
-        if c[0] != LARRAY:
-            return []
+            return If(condition, program, else_)
+
+        else:
+            self.errors.append(Lexer.InvalidSyntax("else expendent"))
+            self.advance()
+            return Skip()
+
+    def parse_sum(self):
+        return self.bin_op(self.parse_mult, (SUM, SUB))
+
+    def parse_mult(self):
+        return self.bin_op(self.parse_condition, (MUL, DIV, MOD))
+
+    def parse_condition(self):
+        return self.bin_op(self.parse_term, (BIGGER, SMALLER, EQUALS, AND, OR))
+
+    def parse_term(self):
+        tok = self.current_tok
+        if self.current_tok.type in (INT, FLOAT):
+            self.advance()
+            return Constant(tok.value)
+        elif self.current_tok.type == IDENTIFIER:
+            return self.parse_Variable()
+        elif self.current_tok.type == STRING:
+            self.advance()
+            return Constant(tok.value)
+        elif self.current_tok.type == LARRAY:
+            return self.parse_array()
+        elif self.current_tok.type == LPAREN:
+
+            return self.parse_paren()
+        elif self.current_tok.type == EOF:
+            return
+        else:
+            raise Not_Parsed()
+
+    def parse_paren(self):
+        self.advance()
+        ins = self.parse_instruction()
+        if self.current_tok.type == RPAREN:
+            self.advance()
+            return ins
+        else:
+            self.errors.append(Lexer.InvalidSyntax('( expendent'))
+            return Skip()
+
+    def bin_op(self, func, op):
+        left = func()
+        while self.current_tok.type in op:
+            op_tok = self.current_tok
+            self.advance()
+            right = func()
+            left = Binary_operator(op_tok.type, left, right)
+        return left
+
+    def parse_var_name(self):
+        name = self.current_tok.value
+        self.advance()
+        indexes = self.array_algorithm()
+
+        return name, indexes
+
+    def parse_Assign(self):
+        self.advance()
+        if self.current_tok.type == IDENTIFIER:
+            name, indexes = self.parse_var_name()
+            if self.current_tok.type == COLON:
+                self.advance()
+                value = self.parse_instruction()
+                if indexes:
+                    return IndexVar(name, value, indexes)
+                return Var(name, value)
+            else:
+                self.errors.append(Lexer.InvalidSyntax(': expedient'))
+                return Skip()
+        else:
+            self.errors.append(Lexer.InvalidSyntax('Name variable must be in alphabet'))
+            return Skip()
+
+    def parse_Write(self):
+        self.advance()
+        instruction = self.parse_instruction()
+        return Write(instruction)
+
+    def parse_Import(self, name=None):
+        if name is None:
+            self.advance()
+            file = open(self.current_tok.value + '.g')
+            self.advance()
+        else:
+            file = open(name + '.g')
+        tokens, errors = Lexer.Lexer(file.read()).make_tokens()
+        parser = Parser(tokens)
+        parsed, errors2 = parser.parse_Program(True)
+        return parsed
+
+    def parse_While(self):
+        self.advance()
+        condition = self.parse_instruction()
+        program = self.parse_instruction()
+
+        return While(condition, program)
+
+    def array_algorithm(self):
         indexes = []
+        if self.current_tok.type != LARRAY:
+            return indexes
         while True:
-            if c[0] == LARRAY:
-                s = self.parse_sum()
-                self.position -= 1
-                c = self.look_char()
-                if c[0] == RARRAY:
-                    indexes.append(s)
-                    self.position += 1
-                    c = self.look_char()
+            if self.current_tok.type == LARRAY:
+                self.advance()
+                value = self.parse_instruction()
+                if self.current_tok.type == RARRAY:
+                    indexes.append(value)
+                    self.advance()
                     continue
-                else:
-                    raise Not_Parsed("'[' ependent")
+
             else:
                 return indexes
 
-    def parse_If(self):
-        c = self.parse_sum()
-        t = self.parse_instruction()
-        s = self.look_char()
-        if s[1] == 'else' and s[0]==IDENTIFIER:
-            q = self.parse_instruction()
-            return If(c, t, q)
-        else:
-            raise Not_Parsed("'else' expendent")
-
-    def parse_Input(self):
-        self.position+=1
-        s = self.look_char()
-        return Input(s[1])
-
-    def parse_Write(self):
-        s = self.parse_sum()
-        return Write(s)
-
-    def parse_Import(self):
-        s = self.look_char()[1]
-        file = open(s + '.g')
-        string = ''
-        for i in file.readlines():
-            string += i
-        parser = Parser(string)
-        return parser.parse_Program()
-
-    def parse_Function(self):
-        s = self.look_char()[1]
-
-        self.position += 1
-
-        p = self.parse_block()
-        return Function(s, p)
-
-    def parse_Do_Function(self):
-
-        return EvalFunction(self.look_char()[1])
-
-    def parse_While(self):
-        c = self.parse_sum()
-        b = self.parse_instruction()
-        return While(c, b)
-
-    def parse_sum(self):
-        e = self.parse_mult()
-        c = self.look_char()
-        while c[0] == SUM or c[0] == SUB:
-            self.position += 1
-            f = self.parse_mult()
-            e = Binary_operator(c[0], e, f)
-            c = self.look_char()
-
-        return e
-
-    def parse_mult(self):
-        e = self.parse_condition()
-        c = self.look_char()
-        while c[0] == MUL or c[0] == DIV or c[0] == MOD:
-            self.position += 1
-            f = self.parse_condition()
-            e = Binary_operator(c[0], e, f)
-            c = self.look_char()
-
-        return e
-
-    def parse_condition(self):
-        e = self.parse_term()
-        c = self.look_char()
-        while c[0] == EQUALS or c[0] == SMALLER or c[0] == BIGGER or c[0] == OR or c[0] == AND:
-            self.position += 1
-            f = self.parse_term()
-            e = Binary_operator(c[0], e, f)
-            c = self.look_char()
-
-        return e
-
-    def parse_tab(self):
-        self.position += 1
-        tab = []
-        while self.input[self.position] != self.EOS:
-            if self.input[self.position][0]==IDENTIFIER:
-                tab.append(self.parse_sum())
-            c = self.look_char()
-            if c[0] == COMMA:
-                self.position += 1
+    def parse_array(self):
+        array = []
+        while self.current_tok.type != RARRAY:
+            self.advance()
+            value = self.parse_instruction()
+            array.append(value)
+            if self.current_tok.type == LARRAY:
+                array.append(self.parse_array())
+            elif self.current_tok.type == COMMA:
                 continue
-            elif c == RARRAY:
+            elif self.current_tok.type == RARRAY:
+                self.advance()
+                return Constant(array)
+        self.advance()
+        return Constant(array)
 
-                self.position += 1
-                break
-            elif c == LARRAY:
-
-                self.position += 1
-                tab.append(self.parse_tab())
-            else:
-                raise Not_Parsed("',' expendent")
-        return Constant(tab)
-
-    def parse_term(self):
-        c = self.look_char()
-        if c[0] == LPAREN:
-            return self.parse_paren()
-        elif c[0] == LARRAY:
-            return self.parse_tab()
-        elif c[0]==';':
-            return
-        elif c[0] == STRING:
-            return Constant(c[1])
-        elif c[0] == IDENTIFIER:
-            return self.parse_Variable()
-        elif c[0] == INT or c[0] == FLOAT:
-            return Constant(c[1])
-
-        else:
-            print(c[0])
-            raise Not_Parsed()
     def parse_Variable(self):
-        s = self.look_char()
-        if s[1] == 'true':
+        name, indexes = self.parse_var_name()
+        if self.current_tok.type == LPAREN:
+            self.advance()
+            params = []
+            while self.current_tok.type != RPAREN:
+                if self.current_tok.type != COMMA and self.current_tok.type != RPAREN:
+                    value = self.parse_instruction()
+                    params.append(value)
+                elif self.current_tok.type == COMMA:
+                    self.advance()
+                elif self.current_tok.type == RPAREN:
+                    break
+                else:
+                    break
+            self.advance()
+            return EvalFunction(name, indexes, params)
+        if name == 'True':
             return Constant(True)
-        elif s[1] == 'false':
+        elif name == 'False':
             return Constant(False)
-
-        elif s[0]==IDENTIFIER:
-            if s[0]==LARRAY:
-                s2=self.tab_algorithm()
-                return IndexVariable(s[1], s2)
-            return Variable(s[1])
-
-    def parse_paren(self):
-        self.position += 1
-        e = self.parse_sum()
-        if self.look_char()[0] == LPAREN:
-            self.position += 1
-            return e
-        else:
-            raise Not_Parsed("')' expendent")
-
-    def parse_Delete(self):
-        s = self.look_char()
-        return Del(s[1])
+        elif name == 'null':
+            return Constant(None)
+        if indexes:
+            return IndexVariable(name, indexes)
+        return Variable(name)
 
     def parse_Append(self):
-        s = self.look_char()
-        indexs = self.tab_algorithm()
-        v = self.parse_sum()
-        return Append(s[1], v, indexs)
+        self.advance()
+        name, indexes = self.parse_var_name()
+        if self.current_tok.type == COLON:
+            self.advance()
+
+            value = self.parse_instruction()
+            self.advance()
+            return Append(name, value, indexes)
+        else:
+            self.errors.append(Lexer.InvalidSyntax(': expedient'))
+            return Skip()
+
+    def parse_Delete(self):
+        self.advance()
+        name = self.current_tok.value
+        self.advance()
+        return Del(name)
+
+    def parse_Function(self):
+        self.advance()
+        params = []
+        if self.current_tok.type == LPAREN:
+            self.advance()
+            while self.current_tok.type != RPAREN:
+                if self.current_tok.type != COMMA and self.current_tok.type != RPAREN:
+                    value = self.current_tok.value
+                    params.append(value)
+
+                    self.advance()
+                elif self.current_tok.type == COMMA:
+                    self.advance()
+            self.advance()
+            program = self.parse_instruction()
+            self.advance()
+            return Function(program, params)
+        else:
+            program = self.parse_instruction()
+            return Function(program, [])
+
+    def parse_Return(self):
+        self.advance()
+        program = self.parse_instruction()
+        return Returned(program)
+
+    def parse_Input(self):
+        self.advance()
+        return Input()
+
+    def parse_Str(self):
+        self.advance()
+        value = self.parse_instruction()
+        return Str(value)
+
+    def parse_Int(self):
+        self.advance()
+        value = self.parse_instruction()
+        return Int(value)
+
+    def parse_Float(self):
+        self.advance()
+        value = self.parse_instruction()
+        return Float(value)
+
+    def parse_Len(self):
+        self.advance()
+        value = self.parse_instruction()
+        return Len(value)

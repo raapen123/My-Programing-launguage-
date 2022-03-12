@@ -1,4 +1,4 @@
-
+from settings import *
 
 
 class Variable_not_found(Exception): pass
@@ -10,7 +10,7 @@ class Zero_Division_Error(Exception): pass
 class Memory:
     def __init__(self):
         self.vars = {}
-        self.functions = {}
+        self.in_function = False
 
     def __delitem__(self, key):
         del self.vars[key]
@@ -21,39 +21,32 @@ class Memory:
     def __getitem__(self, x):
         return self.vars[x]
 
-    def getF(self, x):
-        return self.functions[x]
-
-    def setF(self, x, y):
-        self.functions[x] = y
+    def copy(self):
+        m = Memory()
+        m.vars = self.vars.copy()
+        return m
 
 
 class Expression:
     def eval(self, m: Memory):
-        return 0
+        return
 
 
 class IndexVariable(Expression):
-    def __init__(self, name, index):
+    def __init__(self, name, indexes):
         self.name = name
-        self.index = index
+        self.index = indexes
 
     def eval(self, m: Memory):
         for x, y in m.vars.items():
-
             if str(x) == str(self.name):
                 if type(y) == list:
-                    if type(y[self.index.eval(m)]) == int or type(y[self.index.eval(m)]) == float:
-                        return y[self.index.eval(m)]
-                    else:
-
-                        while True:
-                            if type(y[self.index.eval(m)])==list:
-                                y=y[self.index.eval(m)]
-                            else:
-                                return y[self.index.eval(m)].eval(m)
+                    for i in range(len(self.index)):
+                        if type(y) == list:
+                            y = y[self.index[i].eval(m)]
+                    return y
                 else:
-                    raise Variable_not_found("Varaiable with name " + self.name + " not is the list")
+                    return m[self.name]
         raise Variable_not_found("Variable not found")
 
 
@@ -63,15 +56,9 @@ class Variable(Expression):
 
     def eval(self, m: Memory):
         for x, y in m.vars.items():
-
+            y = y[0]
             if str(x) == str(self.__name):
-                if type(y) == float:
-                    return float(y)
-                elif type(y) == int:
-                    return int(y)
-                else:
-                    return str(y)
-
+                return y
         raise Variable_not_found("Cant search variable: " + str(self.__name))
 
 
@@ -82,9 +69,6 @@ class Constant(Expression):
     def eval(self, m: Memory):
         return self.__value
 
-    def __str__(self):
-        return self.__value
-
 
 class Binary_operator(Expression):
     def __init__(self, s: str, left: Expression, right: Expression):
@@ -93,26 +77,26 @@ class Binary_operator(Expression):
         self.__right = right
 
     def eval(self, m: Memory):
-        if self.__symbol == '+':
+        if self.__symbol == SUM:
             return self.__left.eval(m) + self.__right.eval(m)
-        elif self.__symbol == '-':
+        elif self.__symbol == SUB:
             return self.__left.eval(m) - self.__right.eval(m)
-        elif self.__symbol == '*':
+        elif self.__symbol == MUL:
             return self.__left.eval(m) * self.__right.eval(m)
-        elif self.__symbol == '%':
+        elif self.__symbol == MOD:
             return self.__left.eval(m) % self.__right.eval(m)
-        elif self.__symbol == '=':
+        elif self.__symbol == EQUALS:
             return self.__left.eval(m) == self.__right.eval(m)
-        elif self.__symbol == '<':
+        elif self.__symbol == SMALLER:
             return self.__left.eval(m) < self.__right.eval(m)
-        elif self.__symbol == '>':
+        elif self.__symbol == BIGGER:
             return self.__left.eval(m) > self.__right.eval(m)
-        elif self.__symbol == '|':
+        elif self.__symbol == OR:
             return self.__left.eval(m) or self.__right.eval(m)
-        elif self.__symbol == '&':
+        elif self.__symbol == AND:
             return self.__left.eval(m) and self.__right.eval(m)
         try:
-            if self.__symbol == '/':
+            if self.__symbol == DIV:
                 return self.__left.eval(m) / self.__right.eval(m)
         except ZeroDivisionError:
             raise Zero_Division_Error()
@@ -134,11 +118,12 @@ class Var(Program):
         self.value = v
 
     def eval(self, m):
-        x=self.value.eval(m)
-        if type(x)==list:
-            m[self.name]=[i.eval(m) for i in x]
+
+        x = self.value.eval(m)
+        if type(x) == list:
+            m[self.name] = [[i.eval(m) for i in x], m.in_function]
         else:
-            m[self.name]=x
+            m[self.name] = [x, m.in_function]
 
 
 class IndexVar(Program):
@@ -148,22 +133,30 @@ class IndexVar(Program):
         self.index = i
 
     def eval(self, m):
-        y=m[self.name]
+        y = m[self.name]
 
-        for c,i in enumerate(y):
-            if c==len(y)-2:
-                y[self.index[c].eval(m)]=self.value.eval()
+        for c, i in enumerate(self.index):
+            if c == len(self.index) - 1:
+
+                y[i.eval(m)] = self.value.eval(m)
+                break
             else:
-                y=i[self.index[c].eval(m)]
-
+                print(y,i,c)
+                self.value = y[0][c][i.eval(m)]
 
 
 class Input(Program):
-    def __init__(self, v):
-        self.var = v
 
     def eval(self, m):
-        m[self.var] = Constant(int(input())).eval(m)
+        return input()
+
+
+class Len(Program):
+    def __init__(self, v):
+        self.value = v
+
+    def eval(self, m):
+        return len(self.value.eval(m))
 
 
 class Write(Program):
@@ -173,9 +166,11 @@ class Write(Program):
     def eval(self, m):
         x = self.var.eval(m)
         if type(x) == int or type(x) == float or type(x) == str:
-            print(x)
+            print(x, end='')
+        elif x is None:
+            print('null', end='')
         else:
-            print(x.eval(m))
+            print(x.eval(m), end='')
 
 
 class Composition(Program):
@@ -184,8 +179,15 @@ class Composition(Program):
         self.left = l
 
     def eval(self, m):
-        self.right.eval(m)
-        self.left.eval(m)
+        r = self.right.eval(m)
+        if type(self.right) in (Returned, If, While):
+            if r is not None:
+                return r
+        l = self.left.eval(m)
+        if type(self.left) in (Returned, If, While):
+
+            if l is not None:
+                return l
 
 
 class If(Program):
@@ -196,9 +198,35 @@ class If(Program):
 
     def eval(self, m):
         if self.condition.eval(m):
-            self.b_then.eval(m)
+            x = self.b_then.eval(m)
+            return x if type(self.b_then) in (If, While, Returned, Composition) else None
         else:
-            self.b_else.eval(m)
+            x = self.b_else.eval(m)
+            return x if type(self.b_else) in (If, While, Returned, Composition) else None
+
+
+class Str(Program):
+    def __init__(self, v):
+        self.value = v
+
+    def eval(self, m):
+        return str(self.value.eval(m))
+
+
+class Float(Program):
+    def __init__(self, v):
+        self.value = v
+
+    def eval(self, m):
+        return float(self.value.eval(m))
+
+
+class Int(Program):
+    def __init__(self, v):
+        self.value = v
+
+    def eval(self, m):
+        return int(self.value.eval(m))
 
 
 class While(Program):
@@ -208,41 +236,66 @@ class While(Program):
 
     def eval(self, m):
         if self.condition.eval(m):
-            self.body.eval(m)
+            x = self.body.eval(m)
+            if type(self.body) in (While, Returned, If, Composition):
+                return x
             self.eval(m)
 
 
 class Function(Program):
-    def __init__(self, n, b):
-        self.name = n
+    def __init__(self, b, p):
         self.body = b
+        self.params = p
 
     def eval(self, m):
-        m.setF(self.name, self.body)
+        return {"body": self.body, "params": self.params}
 
 
 class EvalFunction(Program):
-    def __init__(self, n):
-        self.name = n
+    def __init__(self, v, i, p):
+        self.value = v
+        self.indexes = i
+        self.params = p
 
     def eval(self, m):
-        m.getF(self.name).eval(m)
+        if type(self.value) == str:
+            y = m[self.value]
+        elif type(self.value) == list:
+            y = self.value
+        y = y[0]
+        for i in range(len(self.indexes)):
+            y = y[0]
+            if type(y) == list:
+                y = y[self.indexes[i].eval(m)]
+
+        for i in range(len(y['params'])):
+            m[y['params'][i]] = [self.params[i].eval(m), True]
+        m.in_function = True
+        value = y["body"].eval(m)
+        m.in_function = False
+        m2 = m.copy()
+        for x in m2.vars.keys():
+            if m[x][1]:
+                del m[x]
+        return value
 
 
 class Append(Program):
     def __init__(self, name, value, indexs):
         self.name = name
         self.value = value
-        self.indexs=indexs
+        self.indexs = indexs
+
     def eval(self, m):
         y = m[self.name]
-
-        for c, i in enumerate(y):
-            if c == len(y) - 2:
-                y[self.indexs[c].eval(m)] = self.value.eval()
-            else:
-                y = i[self.indexs[c].eval(m)]
+        if self.indexs:
+            for c, i in enumerate(y):
+                if c == len(y) - 2:
+                    y[self.indexs[c].eval(m)] = self.value.eval(m)
+                else:
+                    y = i[self.indexs[c].eval(m)]
         y.append(self.value.eval(m))
+        m[self.name] = y
 
 
 class Del(Program):
@@ -251,3 +304,11 @@ class Del(Program):
 
     def eval(self, m):
         del m[self.name]
+
+
+class Returned(Program):
+    def __init__(self, value):
+        self.value = value
+
+    def eval(self, m):
+        return self.value.eval(m)

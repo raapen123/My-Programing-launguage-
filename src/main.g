@@ -1,0 +1,1 @@
+Write("To hyba funkcja do writa?","\n")
