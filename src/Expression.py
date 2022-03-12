@@ -144,7 +144,6 @@ class IndexVar(Program):
                 print(y,i,c)
                 self.value = y[0][c][i.eval(m)]
 
-
 class Input(Program):
 
     def eval(self, m):

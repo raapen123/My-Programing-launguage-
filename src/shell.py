@@ -2,16 +2,12 @@ import Lexer
 import sys
 
 m = Lexer.Memory()
+
 if len(sys.argv) == 2:
     file = open(sys.argv[1])
-    tokens, errors, program, errors2 = Lexer.run(file.read())
-    if errors is None and errors2 == []:
-        p = program.eval(m)
-    else:
-        for i in range(len(errors2)):
-            print(errors2[i].as_string())
-        if errors is not None:
-            print(errors.as_string())
+    program = Lexer.Parser(Lexer.Lexer(file.read()).make_tokens()).parse_Program(False)
+
+    program.eval(m)
 else:
     while True:
         _input = input("g>")

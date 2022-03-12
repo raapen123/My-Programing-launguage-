@@ -10,14 +10,13 @@ class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.position = -1
+        print(len(tokens))
         self.advance()
         self.errors = []
-
     def advance(self):
         self.position += 1
         if self.position < len(self.tokens):
             self.current_tok = self.tokens[self.position]
-
         return self.current_tok
 
     def parse_block(self, in_program):
@@ -178,6 +177,7 @@ class Parser:
         else:
             file = open(name + '.g')
         tokens, errors = Lexer.Lexer(file.read()).make_tokens()
+        print(file.read())
         parser = Parser(tokens)
         parsed, errors2 = parser.parse_Program(True)
         return parsed

@@ -142,6 +142,7 @@ class Lexer:
                 self.advance()
                 return [], IllegalCharError("'" + char + "'", self.pos.copy().ln)
         tokens.append(Token(EOF))
+        print(tokens)
         return tokens, None
 
     def make_number(self):
