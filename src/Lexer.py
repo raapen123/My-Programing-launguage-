@@ -71,10 +71,13 @@ class Lexer:
                 self.advance()
             elif self.current_char in DIGITS:
                 tokens.append(self.make_number())
-            elif self.current_char.lower() in list(ALPHABET+'_'):
+            elif self.current_char.lower() in list(ALPHABET):
                 tokens.append(self.make_identifier())
             elif self.current_char == '"' or self.current_char == "'":
                 tokens.append(self.make_string())
+                self.advance()
+            elif self.current_char == '.':
+                tokens.append(Token(DOT))
                 self.advance()
             elif self.current_char == '+':
                 tokens.append(Token(SUM))
@@ -140,9 +143,9 @@ class Lexer:
             else:
                 char = self.current_char
                 self.advance()
+                print(tokens,char)
                 return [], IllegalCharError("'" + char + "'", self.pos.copy().ln)
         tokens.append(Token(EOF))
-        print(tokens)
         return tokens, None
 
     def make_number(self):
@@ -190,11 +193,11 @@ class Lexer:
         return Token(STRING, string)
 
 
-def run(text):
+def run(text,imported =  False):
     lexer = Lexer(text)
     tokens, error = lexer.make_tokens()
     parser = Parser(tokens)
-    program, errors2 = parser.parse_Program(False)
+    program, errors2 = parser.parse_Program(imported)
     if error is None:
         return tokens, error, program, errors2
     else:

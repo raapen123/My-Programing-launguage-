@@ -5,7 +5,7 @@ m = Lexer.Memory()
 
 if len(sys.argv) == 2:
     file = open(sys.argv[1])
-    program = Lexer.Parser(Lexer.Lexer(file.read()).make_tokens()).parse_Program(False)
+    program = Lexer.run(file.read())[2]
 
     program.eval(m)
 else:

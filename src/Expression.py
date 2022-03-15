@@ -33,33 +33,23 @@ class Expression:
 
 
 class IndexVariable(Expression):
-    def __init__(self, name, indexes):
+    def __init__(self, name,indexes):
         self.name = name
         self.index = indexes
-
     def eval(self, m: Memory):
         for x, y in m.vars.items():
             if str(x) == str(self.name):
+                y=y[0]
                 if type(y) == list:
                     for i in range(len(self.index)):
                         if type(y) == list:
                             y = y[self.index[i].eval(m)]
                     return y
                 else:
-                    return m[self.name]
+
+                    return y
         raise Variable_not_found("Variable not found")
 
-
-class Variable(Expression):
-    def __init__(self, name):
-        self.__name = name
-
-    def eval(self, m: Memory):
-        for x, y in m.vars.items():
-            y = y[0]
-            if str(x) == str(self.__name):
-                return y
-        raise Variable_not_found("Cant search variable: " + str(self.__name))
 
 
 class Constant(Expression):
@@ -164,19 +154,24 @@ class Write(Program):
 
     def eval(self, m):
         x = self.var.eval(m)
-        if type(x) == int or type(x) == float or type(x) == str:
+        if x.replace('\n','')=='None':
+            print('null',end='')
+        elif type(x) == int or type(x) == float or type(x) == str:
             print(x, end='')
         elif x is None:
             print('null', end='')
+
         else:
-            print(x.eval(m), end='')
+            if x.eval(m) == None:
+                print('null',end='')
+            else:
+                print(x.eval(m), end='')
 
 
 class Composition(Program):
     def __init__(self, r, l):
         self.right = r
         self.left = l
-
     def eval(self, m):
         r = self.right.eval(m)
         if type(self.right) in (Returned, If, While):
@@ -262,6 +257,7 @@ class EvalFunction(Program):
         elif type(self.value) == list:
             y = self.value
         y = y[0]
+        m2 = m.copy()
         for i in range(len(self.indexes)):
             y = y[0]
             if type(y) == list:
@@ -272,10 +268,8 @@ class EvalFunction(Program):
         m.in_function = True
         value = y["body"].eval(m)
         m.in_function = False
-        m2 = m.copy()
-        for x in m2.vars.keys():
-            if m[x][1]:
-                del m[x]
+
+
         return value
 
 

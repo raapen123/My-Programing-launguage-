@@ -10,9 +10,9 @@ class Parser:
     def __init__(self, tokens):
         self.tokens = tokens
         self.position = -1
-        print(len(tokens))
         self.advance()
         self.errors = []
+
     def advance(self):
         self.position += 1
         if self.position < len(self.tokens):
@@ -67,6 +67,12 @@ class Parser:
                 return self.parse_Function()
             elif self.current_tok.value == 'return':
                 return self.parse_Return()
+            elif self.current_tok.value == 'List':
+                self.advance()
+                if self.current_tok.type == LARRAY:
+                    return self.parse_array()
+                else:
+                    return Skip()
             else:
                 return self.parse_sum()
         elif self.current_tok.type == HASHTAG:
@@ -111,8 +117,6 @@ class Parser:
         elif self.current_tok.type == STRING:
             self.advance()
             return Constant(tok.value)
-        elif self.current_tok.type == LARRAY:
-            return self.parse_array()
         elif self.current_tok.type == LPAREN:
 
             return self.parse_paren()
@@ -172,15 +176,14 @@ class Parser:
     def parse_Import(self, name=None):
         if name is None:
             self.advance()
-            file = open(self.current_tok.value + '.g')
+            file = open(
+                'C:\\Users\\hboro\\My-Programing-launguage--main\\My-Programing-launguage--main\\g\\' + self.current_tok.value + '.g')
             self.advance()
         else:
-            file = open(name + '.g')
-        tokens, errors = Lexer.Lexer(file.read()).make_tokens()
-        print(file.read())
-        parser = Parser(tokens)
-        parsed, errors2 = parser.parse_Program(True)
-        return parsed
+            file = open('C:\\Users\\hboro\\My-Programing-launguage--main\\My-Programing-launguage--main\\g\\' + name + '.g')
+        program = Lexer.run(file.read(), imported=True)[2]
+
+        return program
 
     def parse_While(self):
         self.advance()
@@ -244,9 +247,7 @@ class Parser:
             return Constant(False)
         elif name == 'null':
             return Constant(None)
-        if indexes:
-            return IndexVariable(name, indexes)
-        return Variable(name)
+        return IndexVariable(name, indexes)
 
     def parse_Append(self):
         self.advance()

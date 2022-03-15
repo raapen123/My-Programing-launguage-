@@ -1,6 +1,7 @@
-# Write : function (text,end)
+# Write : function (text)
 {
-    write (Str text)+(Str end)
+    write (Str text)+'\n'
+	
 }
 # Input : function (type)
 {
@@ -18,7 +19,7 @@
 {
 	return Len list
 }
-# conv : function (type,var)
+# conv : function (type, var)
 {
 	if type = 'int'
         return Int var
@@ -30,5 +31,27 @@
     else
         return null
 }
+# is_set : function (var)
+{
+	if var = null
+		return False
+	else
+		return True
+}
 
-# __version__ : '0.1'
+# is_instance : function (var , type)
+{
+	if conv(type,var) = var
+		return True
+	else
+		return False
+		
+}
+
+# pow : function (p , w)
+{
+	if w = 0
+		return 1
+	else
+		return p * pow(p,w-1)
+}
