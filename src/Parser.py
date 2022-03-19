@@ -105,7 +105,7 @@ class Parser:
         return self.bin_op(self.parse_condition, (MUL, DIV, MOD))
 
     def parse_condition(self):
-        return self.bin_op(self.parse_term, (BIGGER, SMALLER, EQUALS, AND, OR))
+        return self.bin_op(self.parse_term, (BIGGER, SMALLER, EQUALS, AND, OR, "in"))
 
     def parse_term(self):
         tok = self.current_tok
@@ -137,11 +137,11 @@ class Parser:
 
     def bin_op(self, func, op):
         left = func()
-        while self.current_tok.type in op:
+        while self.current_tok.type in op or self.current_tok.value in op:
             op_tok = self.current_tok
             self.advance()
             right = func()
-            left = Binary_operator(op_tok.type, left, right)
+            left = Binary_operator(op_tok.type if op_tok.type in op else op_tok.value, left, right)
         return left
 
     def parse_var_name(self):
@@ -160,7 +160,8 @@ class Parser:
                 value = self.parse_instruction()
                 if indexes:
                     return IndexVar(name, value, indexes)
-                return Var(name, value)
+                else:
+                    return Var(name, value)
             else:
                 self.errors.append(Lexer.InvalidSyntax(': expedient'))
                 return Skip()
@@ -177,10 +178,11 @@ class Parser:
         if name is None:
             self.advance()
             file = open(
-                'C:\\Users\\hboro\\My-Programing-launguage--main\\My-Programing-launguage--main\\g\\' + self.current_tok.value + '.g')
+                'C:\\Users\\hboro\\My-Programing-launguage--main\\My-Programing-launguage--main\\cons\\' + self.current_tok.value + '.con')
             self.advance()
         else:
-            file = open('C:\\Users\\hboro\\My-Programing-launguage--main\\My-Programing-launguage--main\\g\\' + name + '.g')
+            file = open(
+                'C:\\Users\\hboro\\My-Programing-launguage--main\\My-Programing-launguage--main\\cons\\' + name + '.con')
         program = Lexer.run(file.read(), imported=True)[2]
 
         return program

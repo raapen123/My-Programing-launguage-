@@ -44,7 +44,10 @@ class IndexVariable(Expression):
                     for i in range(len(self.index)):
                         if type(y) == list:
                             y = y[self.index[i].eval(m)]
-                    return y
+                    if not type(y) in (int,str,float,list):
+                        return y.eval(m)
+                    else:
+                        return y
                 else:
 
                     return y
@@ -57,6 +60,11 @@ class Constant(Expression):
         self.__value = value
 
     def eval(self, m: Memory):
+        if type(self.__value) == list:
+            __value = []
+            for i in self.__value:
+                __value.append(i.eval(m))
+            return __value
         return self.__value
 
 
@@ -85,6 +93,8 @@ class Binary_operator(Expression):
             return self.__left.eval(m) or self.__right.eval(m)
         elif self.__symbol == AND:
             return self.__left.eval(m) and self.__right.eval(m)
+        elif self.__symbol == 'in':
+            return self.__left.eval(m) in self.__right.eval(m)
         try:
             if self.__symbol == DIV:
                 return self.__left.eval(m) / self.__right.eval(m)
@@ -111,7 +121,8 @@ class Var(Program):
 
         x = self.value.eval(m)
         if type(x) == list:
-            m[self.name] = [[i.eval(m) for i in x], m.in_function]
+            m[self.name] = [[i for i in x], m.in_function]
+
         else:
             m[self.name] = [x, m.in_function]
 
@@ -124,14 +135,13 @@ class IndexVar(Program):
 
     def eval(self, m):
         y = m[self.name]
-
+        self.value=self.value.eval(m)
         for c, i in enumerate(self.index):
             if c == len(self.index) - 1:
 
-                y[i.eval(m)] = self.value.eval(m)
+                y[i.eval(m)] = self.value
                 break
             else:
-                print(y,i,c)
                 self.value = y[0][c][i.eval(m)]
 
 class Input(Program):
@@ -154,7 +164,8 @@ class Write(Program):
 
     def eval(self, m):
         x = self.var.eval(m)
-        if x.replace('\n','')=='None':
+
+        if type(x) == str and x.replace('\n','')=='None':
             print('null',end='')
         elif type(x) == int or type(x) == float or type(x) == str:
             print(x, end='')
